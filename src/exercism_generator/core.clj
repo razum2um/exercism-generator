@@ -25,11 +25,11 @@
                         (list 'thrown? 'Throwable (cons fname args))
                         (list '= expected (cons fname args))))))))
 
-(defn wrap-ns [test-ns-name ns-name fname & tests]
+(defn wrap-ns [test-ns-name ns-name fnames & tests]
   (cons (list 'ns test-ns-name
               (list :require
                     ['clojure.test :refer ['deftest 'is 'testing]]
-                    [ns-name :refer [fname]]))
+                    [ns-name :refer (vec fnames)]))
         tests))
 
 (defn print-test-forms [& forms]
@@ -40,18 +40,20 @@
 
 (defn anayze-input [input-file]
   (let [{test-cases :cases exercise-name :exercise} (j/read-value (slurp input-file) mapper)]
-    (when-let [{:keys [property]} (first test-cases)]
+    (when-let [fnames (->> test-cases
+                           (map (comp symbol :property))
+                           set
+                           not-empty)]
       (let [ns-name (symbol exercise-name)
-            test-ns-name (symbol (str exercise-name "-test"))
-            fname (symbol property)]
+            test-ns-name (symbol (str exercise-name "-test"))]
         {:ns-name ns-name
          :test-ns-name test-ns-name
-         :fname fname
+         :fnames fnames
          :test-cases test-cases}))))
 
 (defn test-cases-forms [input-file]
-  (let [{:keys [ns-name test-ns-name fname test-cases]} (anayze-input input-file)]
-    (apply wrap-ns test-ns-name ns-name fname
+  (let [{:keys [ns-name test-ns-name fnames test-cases]} (anayze-input input-file)]
+    (apply wrap-ns test-ns-name ns-name fnames
            (map gen-test test-cases))))
 
 (defn format-test-cases [input-file]
